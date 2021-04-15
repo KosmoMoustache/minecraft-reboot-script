@@ -81,4 +81,4 @@ sleep ${backup_delay}
 backup
 
 # WebHook Discord
-curl -X POST "webhookurl" -H 'Content-Type: application/json' -d "$(cat payload.json)" --dump-header out.txt
+curl -X POST "webhookurl" -H 'Content-Type: application/json' -d "$(cat payload.json)"
