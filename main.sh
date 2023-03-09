@@ -1,84 +1,92 @@
-#!bin/bash
-
-## Config ##
-# server root path
-server_path="/path/to/server/root"
-# screen name :  
-screen_name="mc"
-# delay
-tellraw_delay=0
-stop_delay=0
-backup_delay=5
-start_delay=5
-
-# webhooks
-#webhooks_url see curl command
-#payload : payload.json
-
-
-tellraw() {
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 60 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 60 sec"}\n'
-    sleep 60
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 10 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 10 sec"}\n'
-    sleep 5
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 5 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 5 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 4 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 4 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 3 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 3 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 2 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 2 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 1 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 1 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur dans 0 sec"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur dans 0 sec"}\n'
-    sleep 1
-    screen -S ${screen_name} -X stuff 'tellraw @a {"text":"Redémarrage du serveur"}\n'
-    screen -S ${screen_name} -X stuff 'title @a actionbar {"text":"Redémarrage du serveur"}\n'
-}
-
-
-backup() {
-    # date=$(date "+%d-%m-%Y_%H-%M-%S")
-    date=$(date "+%d-%m-%Y")
-    FILE=${server_path}/backups/r_${date}_world.tar.gz
-    if [ -f "$FILE" ]; then
-        index=0
-        while [ -f "$FILE" ]; do  
-            echo "while $FILE"
-            index=$((index+1))
-            ((index=index+1))
-            FILE=${server_path}/backups/r_${date}_world_${index}.tar.gz
-        done
-        tar -czvf ${server_path}/backups/r_${date}_world_${index}.tar.gz ${server_path}/world
-    else
-        tar -czvf ${server_path}/backups/r_${date}_world.tar.gz ${server_path}/world
-    fi
-    screen -S ${screen_name} -X stuff 'sh start.sh\n'
-}
-
+#!/bin/bash
 
 # Main script
+# This script will check if there are any players online and if not, it will make a backup using simplebackup mod and shut down the server.
+# And put to sleep the laptop until 9am.
 
-# Tell player of the upcoming shutdown
-sleep ${tellraw_delay}
-tellraw
+# Path to the Minecraft server directory
+server_dir="/path/to/server"
+# Path to the server log file
+log_file="$server_dir/logs/latest.log"
+username="username" # Linux username
 
-# Stop server
-sleep ${stop_delay}
-screen -S ${screen_name} -X stuff 'stop\n'
+# Get the number of players online
+function get_player_number() {
+  # execute /list command in the server's console
+  execute_in_screen "list"
+  sleep 1
+  local last_line=$(tail -n 1 "$log_file")
+  player_number=$(echo "$last_line" | grep -o "[0-9]* of a max" | grep -o "[0-9]*")
+  echo $player_number
+}
 
-# Make backup and restart the server
-sleep ${backup_delay}
-backup
+# Get the number of seconds until 9am
+function get_time_to_nine() {
+  # Get the current time in seconds
+  current_time=$(date +%s)
+  # Get the time of 9am today in seconds
+  nine_am=$(date -d "9am today" +%s)
 
-# WebHook Discord
-curl -X POST "webhookurl" -H 'Content-Type: application/json' -d "$(cat payload.json)"
+  # Check if the current time is past 9am
+  if [ "$current_time" -gt "$nine_am" ]; then
+    return -1
+  fi
+
+  # Calculate the number of seconds between the current time and 9am
+  # Shared variable
+  seconds_until_nine_am=$((nine_am - current_time))
+}
+
+# Check if there is at least one player online
+function is_players_online() {
+  local result=$(get_player_number)
+  if [ "$result" -ge 0 ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
+# Say something in the server's chat
+function log_in_chat() {
+   su - $username -c "screen -S server -p 0 -X stuff 'say [$(date "+%D %T")] $1^M'"
+}
+function execute_in_screen() {
+   su - $username -c "screen -S server -p 0 -X stuff '$1^M'"
+}
+# Log
+function log() {
+  echo "[$(date "+%D %T")] $1"
+}
+
+# Main loop
+while true; do
+  if is_players_online; then
+    log "Player(s) are online. (Checking again in 5 minutes)"
+    log_in_chat "Player(s) are online. (Checking again in 5 minutes)"
+    sleep 300
+  else
+    log "No player online. (Checking again in 5 minutes)"
+    log_in_chat "No player online. (Checking again in 5 minutes)"
+    sleep 300
+    if is_players_online; then
+      log "Player(s) are back."
+      log_in_chat "Player(s) are back."
+    else
+      log "Still no player online. Server will be backed up and stopped."
+      log_in_chat "Still no player online. Server will be backed up and stopped."
+      # TODO: Check if the backup is successful before stopping the server
+      execute_in_screen "simplebackups backup start^M"
+      sleep 60
+      execute_in_screen "say Arrêt du serveur dans 30 secondes.^M"
+      sleep 30
+      execute_in_screen "stop^M"
+      sleep 60
+      log "Server will be restarted in 9 hours."
+      # Sleep the laptop until 9am
+      rtcwake -m mem -t $(($(date +%s) + 9*3600))
+      execute_in_screen "./run.sh^M"
+      exit 0
+    fi
+  fi
+done
