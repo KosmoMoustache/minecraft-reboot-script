@@ -41,9 +41,9 @@ function get_time_to_nine() {
 function is_players_online() {
   local result=$(get_player_number)
   if [ "$result" -ge 0 ]; then
-    return 1
+    echo 1
   else
-    return 0
+    echo 0
   fi
 }
 
@@ -61,7 +61,7 @@ function log() {
 
 # Main loop
 while true; do
-  if is_players_online; then
+  if [ "$(is_players_online)" -eq 1 ]; then
     log "Player(s) are online. (Checking again in 5 minutes)"
     log_in_chat "Player(s) are online. (Checking again in 5 minutes)"
     sleep 300
@@ -69,7 +69,7 @@ while true; do
     log "No player online. (Checking again in 5 minutes)"
     log_in_chat "No player online. (Checking again in 5 minutes)"
     sleep 300
-    if is_players_online; then
+  if [ "$(is_players_online)" -eq 1 ]; then
       log "Player(s) are back."
       log_in_chat "Player(s) are back."
     else
