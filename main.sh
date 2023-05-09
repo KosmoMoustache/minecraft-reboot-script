@@ -25,7 +25,7 @@ function get_time_to_nine() {
   # Get the current time in seconds
   current_time=$(date +%s)
   # Get the time of 9am today in seconds
-  nine_am=$(date -d "9am today" +%s)
+  nine_am=$(date -d "11am today" +%s)
 
   # Check if the current time is past 9am
   if [ "$current_time" -gt "$nine_am" ]; then
@@ -84,7 +84,9 @@ while true; do
       sleep 60
       log "Server will be restarted in 9 hours."
       # Sleep the laptop until 9am
-      rtcwake -m mem -t $(($(date +%s) + 9*3600))
+      get_time_to_nine
+      rtcwake -m mem -t $?
+      # rtcwake -m mem -t $(($(date +%s) + 9*3600))
       execute_in_screen "./run.sh^M"
       exit 0
     fi
